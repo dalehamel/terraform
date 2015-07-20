@@ -157,16 +157,19 @@ func resourceAwsSecurityGroupRuleRead(d *schema.ResourceData, meta interface{}) 
 		return nil
 	}
 
-	var rule *ec2.IPPermission
 	ruleType := d.Get("type").(string)
-	var rl []*ec2.IPPermission
-	switch ruleType {
-	case "ingress":
-		rl = sg.IPPermissions
-	default:
-		rl = sg.IPPermissionsEgress
+
+	rl := []*ec2.IPPermission{}
+	if sg != nil {
+		switch ruleType {
+		case "ingress":
+			rl = sg.IPPermissions
+		default:
+			rl = sg.IPPermissionsEgress
+		}
 	}
 
+	var rule *ec2.IPPermission
 	for _, r := range rl {
 		if d.Id() == ipPermissionIDHash(ruleType, r) {
 			rule = r
