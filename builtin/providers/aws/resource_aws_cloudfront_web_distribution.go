@@ -9,7 +9,6 @@ import (
 
 	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/awslabs/aws-sdk-go/aws/awserr"
-	"github.com/awslabs/aws-sdk-go/aws/awsutil"
 	"github.com/awslabs/aws-sdk-go/service/cloudfront"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/resource"
@@ -306,7 +305,7 @@ func resourceAwsCloudFrontWebDistributionCreate(d *schema.ResourceData, meta int
 		return fmt.Errorf("Error creating CloudFront distribution: %s", err)
 	}
 
-	d.SetId(*res.Distribution.ID)
+	d.SetId(*res.Distribution.Id)
 
 	err = resourceAwsCloudFrontWebDistributionWaitUntilDeployed(d, meta)
 	if err != nil {
@@ -336,7 +335,8 @@ func resourceAwsCloudFrontWebDistributionRead(d *schema.ResourceData, meta inter
 	d.Set("status", v.Distribution.Status)
 	d.Set("default_viewer_protocol_policy", c.DefaultCacheBehavior.ViewerProtocolPolicy)
 	d.Set("default_forward_cookie", c.DefaultCacheBehavior.ForwardedValues.Cookies)
-	d.Set("default_whitelisted_cookies", resourceAwsCloudFrontCopyItems(c.DefaultCacheBehavior.ForwardedValues.Cookies.WhitelistedNames.Items))
+// Causes panic, null pointer somewhere in here
+//	d.Set("default_whitelisted_cookies", resourceAwsCloudFrontCopyItems(c.DefaultCacheBehavior.ForwardedValues.Cookies.WhitelistedNames.Items))
 	d.Set("default_forward_query_string", c.DefaultCacheBehavior.ForwardedValues.QueryString)
 	d.Set("default_minimum_ttl", c.DefaultCacheBehavior.MinTTL)
 	d.Set("default_smooth_streaming", c.DefaultCacheBehavior.SmoothStreaming)
@@ -347,7 +347,7 @@ func resourceAwsCloudFrontWebDistributionRead(d *schema.ResourceData, meta inter
 	d.Set("logging_include_cookies", c.Logging.IncludeCookies)
 	d.Set("logging_prefix", c.Logging.Prefix)
 	d.Set("logging_bucket", c.Logging.Bucket)
-	d.Set("default_origin", c.DefaultCacheBehavior.TargetOriginID)
+	d.Set("default_origin", c.DefaultCacheBehavior.TargetOriginId)
 	d.Set("aliases", c.Aliases.Items)
 	d.Set("geo_restriction_type", c.Restrictions.GeoRestriction.RestrictionType)
 	d.Set("geo_restrictions", resourceAwsCloudFrontCopyItems(c.Restrictions.GeoRestriction.Items))
@@ -358,7 +358,7 @@ func resourceAwsCloudFrontWebDistributionRead(d *schema.ResourceData, meta inter
 	if *c.ViewerCertificate.CloudFrontDefaultCertificate == true {
 		d.Set("certificate_id", "")
 	} else {
-		d.Set("certificate_id", c.ViewerCertificate.IAMCertificateID)
+		d.Set("certificate_id", c.ViewerCertificate.IAMCertificateId)
 	}
 
 	if err := d.Set("origin", resourceAwsCloudFrontOriginGather(c.Origins)); err != nil {
@@ -388,7 +388,7 @@ func resourceAwsCloudFrontWebDistributionUpdate(d *schema.ResourceData, meta int
 
 	params := &cloudfront.UpdateDistributionInput{
 		DistributionConfig: c,
-		ID:                 aws.String(string(d.Id())),
+		Id:                 aws.String(string(d.Id())),
 		IfMatch:            v.ETag,
 	}
 
@@ -436,7 +436,7 @@ func resourceAwsCloudFrontWebDistributionDelete(d *schema.ResourceData, meta int
 	}
 
 	params := &cloudfront.DeleteDistributionInput{
-		ID:      aws.String(string(d.Id())),
+		Id:      aws.String(string(d.Id())),
 		IfMatch: v.ETag,
 	}
 
@@ -472,41 +472,41 @@ func resourceAwsCloudFrontWebDistributionDistributionConfig(
 		d.Get("default_forward_cookie"), d.Get("default_whitelisted_cookies"))
 
 	viewerCertificate := &cloudfront.ViewerCertificate{
-		MinimumProtocolVersion: aws.String(d.Get("minimum_ssl").(string)),
+		//MinimumProtocolVersion: aws.String(d.Get("minimum_ssl").(string)),
 		SSLSupportMethod:       aws.String(d.Get("ssl_support_method").(string)),
 	}
 	if d.Get("certificate_id") == "" {
-		viewerCertificate.CloudFrontDefaultCertificate = aws.Boolean(true)
+		viewerCertificate.CloudFrontDefaultCertificate = aws.Bool(true)
 	} else {
-		viewerCertificate.IAMCertificateID = aws.String(d.Get("certificate_id").(string))
+		viewerCertificate.IAMCertificateId = aws.String(d.Get("certificate_id").(string))
 	}
 
 	// PUT DistributionConfig requires, unlike POST, EVERY possible option to be set.
 	// Except for the configurable options, these are the defaults options.
 	x := &cloudfront.DistributionConfig{
 		CallerReference:   callerReference,
-		Enabled:           aws.Boolean(d.Get("enabled").(bool)),
+		Enabled:           aws.Bool(d.Get("enabled").(bool)),
 		Comment:           aws.String(d.Get("comment").(string)),
 		PriceClass:        aws.String(d.Get("price_class").(string)),
 		DefaultRootObject: aws.String(d.Get("default_root_object").(string)),
 		Aliases: &cloudfront.Aliases{
-			Quantity: aws.Long(int64(len(aliases))),
+			Quantity: aws.Int64(int64(len(aliases))),
 			Items:    aliases,
 		},
 		Origins: &cloudfront.Origins{
-			Quantity: aws.Long(int64(len(origins))),
+			Quantity: aws.Int64(int64(len(origins))),
 			Items:    origins,
 		},
 		ViewerCertificate: viewerCertificate,
 		Logging: &cloudfront.LoggingConfig{
-			Enabled:        aws.Boolean(d.Get("logging_enabled").(bool)),
-			IncludeCookies: aws.Boolean(d.Get("logging_include_cookies").(bool)),
+			Enabled:        aws.Bool(d.Get("logging_enabled").(bool)),
+			IncludeCookies: aws.Bool(d.Get("logging_include_cookies").(bool)),
 			Prefix:         aws.String(d.Get("logging_prefix").(string)),
 			Bucket:         aws.String(d.Get("logging_bucket").(string)),
 		},
 		Restrictions: &cloudfront.Restrictions{
 			GeoRestriction: &cloudfront.GeoRestriction{
-				Quantity:        aws.Long(int64(len(geoRestrictions))),
+				Quantity:        aws.Int64(int64(len(geoRestrictions))),
 				RestrictionType: aws.String(d.Get("geo_restriction_type").(string)),
 				Items:           geoRestrictions,
 			},
@@ -514,39 +514,37 @@ func resourceAwsCloudFrontWebDistributionDistributionConfig(
 		DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 			ForwardedValues: &cloudfront.ForwardedValues{
 				Cookies:     cookies,
-				QueryString: aws.Boolean(d.Get("default_forward_query_string").(bool)),
+				QueryString: aws.Bool(d.Get("default_forward_query_string").(bool)),
 				Headers: &cloudfront.Headers{
-					Quantity: aws.Long(int64(len(defaultForwardedHeaders))),
+					Quantity: aws.Int64(int64(len(defaultForwardedHeaders))),
 					Items:    defaultForwardedHeaders,
 				},
 			},
-			TargetOriginID:       aws.String(d.Get("default_origin").(string)),
+			TargetOriginId:       aws.String(d.Get("default_origin").(string)),
 			ViewerProtocolPolicy: aws.String(d.Get("default_viewer_protocol_policy").(string)),
-			MinTTL:               aws.Long(int64(d.Get("default_minimum_ttl").(int))),
+			MinTTL:               aws.Int64(int64(d.Get("default_minimum_ttl").(int))),
 			TrustedSigners: &cloudfront.TrustedSigners{
-				Enabled:  aws.Boolean(false),
-				Quantity: aws.Long(0),
+				Enabled:  aws.Bool(false),
+				Quantity: aws.Int64(0),
 			},
-			SmoothStreaming: aws.Boolean(d.Get("default_smooth_streaming").(bool)),
+			SmoothStreaming: aws.Bool(d.Get("default_smooth_streaming").(bool)),
 			AllowedMethods: &cloudfront.AllowedMethods{
-				Quantity: aws.Long(int64(len(defaultAllowedMethods))),
+				Quantity: aws.Int64(int64(len(defaultAllowedMethods))),
 				Items:    defaultAllowedMethods,
 				CachedMethods: &cloudfront.CachedMethods{
-					Quantity: aws.Long(int64(len(defaultCachedMethods))),
+					Quantity: aws.Int64(int64(len(defaultCachedMethods))),
 					Items:    defaultCachedMethods,
 				},
 			},
 		},
 		CacheBehaviors: &cloudfront.CacheBehaviors{
-			Quantity: aws.Long(int64(len(behaviors))),
+			Quantity: aws.Int64(int64(len(behaviors))),
 			Items:    behaviors,
 		},
 		CustomErrorResponses: &cloudfront.CustomErrorResponses{
-			Quantity: aws.Long(0),
+			Quantity: aws.Int64(0),
 		},
 	}
-
-	log.Println(awsutil.StringValue(x))
 
 	return x, nil
 }
@@ -556,7 +554,7 @@ func resourceAwsCloudFrontWebDistributionDistributionRetrieve(
 	cloudfrontconn := meta.(*AWSClient).cloudfrontconn
 
 	req := &cloudfront.GetDistributionInput{
-		ID: aws.String(d.Id()),
+		Id: aws.String(d.Id()),
 	}
 
 	res, err := cloudfrontconn.GetDistribution(req)
@@ -668,11 +666,11 @@ func resourceAwsCloudFrontWebDistributionExpandOrigins(configured []interface{})
 
 		o := &cloudfront.Origin{
 			DomainName: aws.String(data["domain_name"].(string)),
-			ID:         aws.String(data["id"].(string)),
+			Id:         aws.String(data["id"].(string)),
 			OriginPath: aws.String(data["origin_path"].(string)),
 			CustomOriginConfig: &cloudfront.CustomOriginConfig{
-				HTTPPort:             aws.Long(int64(data["http_port"].(int))),
-				HTTPSPort:            aws.Long(int64(data["https_port"].(int))),
+				HTTPPort:             aws.Int64(int64(data["http_port"].(int))),
+				HTTPSPort:            aws.Int64(int64(data["https_port"].(int))),
 				OriginProtocolPolicy: aws.String(data["origin_protocol_policy"].(string)),
 			},
 		}
@@ -697,27 +695,27 @@ func resourceAwsCloudFrontWebDistributionExpandBehaviors(configured []interface{
 
 		o := &cloudfront.CacheBehavior{
 			PathPattern:    aws.String(data["pattern"].(string)),
-			TargetOriginID: aws.String(data["origin"].(string)),
+			TargetOriginId: aws.String(data["origin"].(string)),
 			ForwardedValues: &cloudfront.ForwardedValues{
 				Cookies:     cookies,
-				QueryString: aws.Boolean(false),
+				QueryString: aws.Bool(false),
 				Headers: &cloudfront.Headers{
-					Quantity: aws.Long(int64(len(forwardedHeaders))),
+					Quantity: aws.Int64(int64(len(forwardedHeaders))),
 					Items:    forwardedHeaders,
 				},
 			},
-			MinTTL: aws.Long(int64(data["minimum_ttl"].(int))),
+			MinTTL: aws.Int64(int64(data["minimum_ttl"].(int))),
 			TrustedSigners: &cloudfront.TrustedSigners{
-				Enabled:  aws.Boolean(false),
-				Quantity: aws.Long(0),
+				Enabled:  aws.Bool(false),
+				Quantity: aws.Int64(0),
 			},
 			ViewerProtocolPolicy: aws.String(data["viewer_protocol_policy"].(string)),
-			SmoothStreaming:      aws.Boolean(data["smooth_streaming"].(bool)),
+			SmoothStreaming:      aws.Bool(data["smooth_streaming"].(bool)),
 			AllowedMethods: &cloudfront.AllowedMethods{
-				Quantity: aws.Long(int64(len(allowedMethods))),
+				Quantity: aws.Int64(int64(len(allowedMethods))),
 				Items:    allowedMethods,
 				CachedMethods: &cloudfront.CachedMethods{
-					Quantity: aws.Long(int64(len(cachedMethods))),
+					Quantity: aws.Int64(int64(len(cachedMethods))),
 					Items:    cachedMethods,
 				},
 			},
@@ -764,7 +762,7 @@ func resourceAwsCloudFrontWebDistributionCookies(a, b interface{}) *cloudfront.C
 	return &cloudfront.CookiePreference{
 		Forward: aws.String(forwardCookie),
 		WhitelistedNames: &cloudfront.CookieNames{
-			Quantity: aws.Long(int64(len(whitelist))),
+			Quantity: aws.Int64(int64(len(whitelist))),
 			Items:    whitelist,
 		},
 	}
@@ -777,7 +775,7 @@ func resourceAwsCloudFrontOriginGather(d *cloudfront.Origins) []map[string]inter
 		m := make(map[string]interface{})
 
 		m["domain_name"] = *cd.DomainName
-		m["id"] = *cd.ID
+		m["id"] = *cd.Id
 		if cd.CustomOriginConfig != nil {
 			m["http_port"] = *cd.CustomOriginConfig.HTTPPort
 			m["https_port"] = *cd.CustomOriginConfig.HTTPSPort
@@ -794,13 +792,11 @@ func resourceAwsCloudFrontOriginGather(d *cloudfront.Origins) []map[string]inter
 func resourceAwsCloudFrontBehaviorGather(d *cloudfront.CacheBehaviors) []map[string]interface{} {
 	behaviors := make([]map[string]interface{}, *d.Quantity)
 
-	log.Println(awsutil.StringValue(d))
-
 	for i, cd := range d.Items {
 		m := make(map[string]interface{})
 
 		m["pattern"] = *cd.PathPattern
-		m["origin"] = *cd.TargetOriginID
+		m["origin"] = *cd.TargetOriginId
 		m["smooth_streaming"] = *cd.SmoothStreaming
 		m["viewer_protocol_policy"] = *cd.ViewerProtocolPolicy
 		m["minimum_ttl"] = int(*cd.MinTTL)
